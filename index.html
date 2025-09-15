@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>12-tone matrix — Generator + Multi-Highlight + Labels</title>
+  <title>12-tone matrix — Generator + Multi-Highlight + Labels (corrected)</title>
   <style>
     :root{
       --gap:8px;
@@ -72,7 +72,7 @@
     <header>
       <div>
         <h1>12-tone matrix — generator + multi-highlight</h1>
-        <p class="lead">Armá la fila prima con el teclado superior. Luego <strong>Generate Matrix</strong>. Ahora la matriz muestra a la izquierda las formas <strong>P</strong>, arriba las <strong>I</strong>, a la derecha las <strong>R</strong> y abajo las <strong>RI</strong> — todas **espejadas** en número con P/I (ej. si la fila es <code>P4</code>, su <code>R</code> en la misma fila será <code>R4</code>; si la columna es <code>I4</code>, su <code>RI</code> abajo será <code>RI4</code>).</p>
+        <p class="lead">Armá la fila prima con el teclado superior. Luego <strong>Generate Matrix</strong>. Las etiquetas ahora calculan las designaciones **relativas**: <strong>P0</strong> es la fila prima original (transposición 0) y todas las demás P/I/R/RI se nombran en relación a esa referencia — conservando además el espejado R ↔ P e RI ↔ I.</p>
       </div>
     </header>
 
@@ -190,31 +190,34 @@
       matrix = Array.from({length:12},(_,r)=>Array.from({length:12},(_,c)=>
         ((primeRow[c] + (primeRow[0] - primeRow[r])) % 12 + 12) % 12
       ));
-      computeLabelsAndForms();
+      computeLabelsAndFormsRelative();
       renderMatrix();
       renderFormsList();
     }
 
-    function computeLabelsAndForms(){
+    // IMPORTANT: compute labels RELATIVE to the prime row's first element (P0 reference)
+    function computeLabelsAndFormsRelative(){
       labels = {P:[],I:[],R:[],RI:[]};
+      if(!primeRow || primeRow.length !== 12) return;
+      const ref = primeRow[0]; // reference pitch-class for P0
 
-      // Primes P and their retrogrades R (R mirrors P's index)
+      // Rows -> Primes Pn: transposition number = (ref - primeRow[r]) mod 12
       for(let r=0;r<12;r++){
         const rowSeq = matrix[r].slice();
-        const first = rowSeq[0];
-        labels.P.push({name:`P${first}`, index:first, seq: rowSeq});
-        // R mirrors the P index and is the retrograde of the same row
-        labels.R.push({name:`R${first}`, index:first, seq: rowSeq.slice().reverse()});
+        const trans = ((ref - primeRow[r]) % 12 + 12) % 12; // Pn where n = trans
+        labels.P.push({name:`P${trans}`, index:trans, seq: rowSeq});
+        // R mirrors P number and is retrograde of the same row
+        labels.R.push({name:`R${trans}`, index:trans, seq: rowSeq.slice().reverse()});
       }
 
-      // Inversions I and their retrograde-inversions RI (RI mirrors I's index)
+      // Columns -> Inversions In: transposition number = (primeRow[c] - ref) mod 12
       for(let c=0;c<12;c++){
         const colSeq = [];
         for(let r=0;r<12;r++) colSeq.push(matrix[r][c]);
-        const first = colSeq[0];
-        labels.I.push({name:`I${first}`, index:first, seq: colSeq});
-        // RI mirrors the I index and is the retrograde (reverse) of the column
-        labels.RI.push({name:`RI${first}`, index:first, seq: colSeq.slice().reverse()});
+        const trans = ((primeRow[c] - ref) % 12 + 12) % 12; // I n where n = trans
+        labels.I.push({name:`I${trans}`, index:trans, seq: colSeq});
+        // RI mirrors I number and is retrograde of the column
+        labels.RI.push({name:`RI${trans}`, index:trans, seq: colSeq.slice().reverse()});
       }
     }
 
