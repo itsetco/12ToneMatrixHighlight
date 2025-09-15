@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>12-tone matrix — Generator + Multi-Highlight + Labels</title>
+  <style>
+    :root{
+      --gap:8px;
+      --kbd-h:44px;
+      --cell-size:44px;
+      --bg:#041025;
+      --card:#071427;
+      --muted:#9fb2c2;
+      --accent:#7dd3fc;
+      --glass: rgba(255,255,255,0.03);
+    }
+    *{box-sizing:border-box;font-family:Inter,system-ui,Segoe UI,Roboto,'Helvetica Neue',Arial}
+    body{background:linear-gradient(180deg,#041025 0%,#031622 100%);color:#e6eef6;min-height:100vh;margin:0;display:flex;align-items:flex-start;justify-content:center;padding:28px}
+    .app{width:100%;max-width:1220px}
+    header{display:flex;align-items:center;gap:16px;margin-bottom:18px}
+    h1{font-size:20px;margin:0}
+    p.lead{margin:0;color:var(--muted);font-size:13px}
+
+    .controls{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+    .kbd{background:var(--card);padding:10px;border-radius:12px;display:flex;gap:8px;flex-wrap:wrap}
+    .key{height:var(--kbd-h);min-width:44px;padding:6px 10px;border-radius:8px;background:var(--glass);display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;border:1px solid rgba(255,255,255,0.04);transition:transform .12s,box-shadow .12s}
+    .key.active{box-shadow:0 8px 28px rgba(125,211,252,0.12) inset;transform:translateY(0);outline:2px solid rgba(125,211,252,0.14)}
+
+    .row-input{display:flex;gap:8px;align-items:center}
+    .sequence{min-height:var(--kbd-h);display:flex;gap:8px;align-items:center;padding:6px;border-radius:8px;background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent)}
+    .slot{width:40px;height:34px;border-radius:6px;background:rgba(255,255,255,0.02);display:flex;align-items:center;justify-content:center;color:var(--muted);border:1px dashed rgba(255,255,255,0.03)}
+    .slot.filled{background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(125,211,252,0.02));color:#dff6ff;border:1px solid rgba(125,211,252,0.12)}
+
+    .btn{background:linear-gradient(180deg,#163143,#0d2836);padding:8px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);cursor:pointer;color:var(--accent)}
+
+    .matrix-wrap{display:flex;gap:12px;align-items:flex-start}
+
+    /* 14x14 grid: left label, 12 cells, right label  (cols)
+       top labels, 12 rows, bottom labels (rows) */
+    .matrix-container{display:grid;grid-template-columns:auto repeat(12,var(--cell-size)) auto;grid-template-rows:auto repeat(12,var(--cell-size)) auto;gap:6px;padding:8px;background:rgba(255,255,255,0.02);border-radius:10px;border:1px solid rgba(255,255,255,0.03)}
+
+    .label-cell{width:var(--cell-size);height:var(--cell-size);display:flex;align-items:center;justify-content:center;border-radius:6px;background:transparent;font-size:12px;color:var(--muted);border:1px solid rgba(255,255,255,0.02);}
+    .corner{width:44px;height:44px;background:transparent;border:0}
+
+    .cell{width:var(--cell-size);height:var(--cell-size);display:flex;align-items:center;justify-content:center;border-radius:6px;background:transparent;font-size:12px;color:var(--muted);border:1px solid rgba(255,255,255,0.02);position:relative}
+    .cell .note{position:relative;z-index:2}
+    .cell .badge{position:absolute;inset:0;border-radius:6px;z-index:1;opacity:0}
+
+    .cell.highlight{color:#041014;font-weight:700}
+
+    .row-label{display:flex;align-items:center;justify-content:center;background:transparent;border-radius:6px;font-size:12px;color:#dff6ff;border:1px solid rgba(255,255,255,0.03)}
+    .col-label{display:flex;align-items:center;justify-content:center;background:transparent;border-radius:6px;font-size:12px;color:#ffdca8;border:1px solid rgba(255,255,255,0.03)}
+    .right-label{display:flex;align-items:center;justify-content:center;background:transparent;border-radius:6px;font-size:12px;color:#ffd1d1;border:1px solid rgba(255,255,255,0.03)}
+    .bottom-label{display:flex;align-items:center;justify-content:center;background:transparent;border-radius:6px;font-size:12px;color:#c8ffd9;border:1px solid rgba(255,255,255,0.03)}
+
+    .legend{display:flex;flex-direction:column;gap:8px;padding:8px;min-width:260px}
+    .legend .mini-kbd{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+    .legend .mini-key{height:34px;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;border:1px solid rgba(255,255,255,0.03)}
+    .legend .selected{outline:3px solid rgba(255,255,255,0.03)}
+
+    .help{margin-top:10px;color:var(--muted);font-size:13px}
+    .forms{margin-top:6px;color:var(--muted);font-size:13px;display:flex;flex-direction:column;gap:6px}
+    .forms .form-row{display:flex;gap:8px;flex-wrap:wrap}
+    .forms .chip{padding:6px 8px;border-radius:8px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.03);font-size:12px}
+
+    @media (max-width:980px){.matrix-wrap{flex-direction:column}.legend{min-width:unset}}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div>
+        <h1>12-tone matrix — generator + multi-highlight</h1>
+        <p class="lead">Armá la fila prima con el teclado superior. Luego <strong>Generate Matrix</strong>. Ahora la matriz muestra a la izquierda las formas <strong>P</strong>, arriba las <strong>I</strong>, a la derecha las <strong>R</strong> y abajo las <strong>RI</strong> — todas **espejadas** en número con P/I (ej. si la fila es <code>P4</code>, su <code>R</code> en la misma fila será <code>R4</code>; si la columna es <code>I4</code>, su <code>RI</code> abajo será <code>RI4</code>).</p>
+      </div>
+    </header>
+
+    <section class="controls">
+      <div style="flex:1">
+        <div class="kbd" id="topKeyboard"></div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
+          <div class="row-input">
+            <div class="sequence" id="sequenceDisplay" aria-live="polite"></div>
+          </div>
+          <button class="btn" id="generateBtn">Generate Matrix</button>
+          <button class="btn" id="randomBtn">Random Row</button>
+          <button class="btn" id="clearRowBtn">Clear</button>
+        </div>
+      </div>
+    </section>
+
+    <div class="matrix-wrap">
+      <div>
+        <div id="matrixContainer" class="matrix-container" aria-hidden="true">
+          <!-- 14x14 grid: JS llenará con: corner, 12 I-labels, corner; then for each row: P-label, 12 cells, R-label; final row: corner, 12 RI-labels, corner -->
+        </div>
+      </div>
+
+      <aside class="legend">
+        <div style="display:flex;align-items:center;justify-content:space-between"><strong>Highlight keyboard</strong><button class="btn" id="clearHighlights">Clear</button></div>
+        <div class="mini-kbd" id="bottomKeyboard"></div>
+        <div class="help">Seleccioná notas para colorear todas las celdas que contengan esa clase de altura. Click en una celda alterna el highlight de su pitch.</div>
+
+        <div class="forms">
+          <strong>Derivations (click to copy)</strong>
+          <div id="formsList"></div>
+        </div>
+      </aside>
+    </div>
+
+  </div>
+
+  <script>
+    // pitch classes and bright colors
+    const PITCHES = ['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'];
+    const COLORS = ['#ff7a18','#ff3b30','#ff2d6f','#b072ff','#4ea8ff','#2bd588','#12c2a5','#05c1e8','#7de7ff','#ff74c2','#ffe45b','#b6ff2f'];
+
+    const topKeyboard = document.getElementById('topKeyboard');
+    const bottomKeyboard = document.getElementById('bottomKeyboard');
+    const seqDisplay = document.getElementById('sequenceDisplay');
+    const matrixContainer = document.getElementById('matrixContainer');
+    const formsList = document.getElementById('formsList');
+
+    // state
+    let primeRow = [];
+    let selectedHighlights = new Set();
+    let matrix = [];
+    let labels = {P:[],I:[],R:[],RI:[]};
+
+    function buildKeyboard(container, clickHandler){
+      container.innerHTML = '';
+      PITCHES.forEach((name,i)=>{
+        const btn = document.createElement('div');
+        btn.className = 'key';
+        btn.dataset.idx = i;
+        btn.textContent = name;
+        btn.title = name + ' (' + i + ')';
+        btn.style.minWidth = '44px';
+        btn.addEventListener('click', ()=> clickHandler(i, btn));
+        container.appendChild(btn);
+      });
+    }
+
+    buildKeyboard(topKeyboard, (i,btn)=>{
+      if(primeRow.includes(i)) return;
+      if(primeRow.length >= 12) return;
+      primeRow.push(i);
+      updateSequenceDisplay();
+      btn.classList.add('active');
+    });
+
+    buildKeyboard(bottomKeyboard, (i,btn)=>{
+      if(selectedHighlights.has(i)){
+        selectedHighlights.delete(i);
+        btn.classList.remove('selected');
+        btn.style.boxShadow = '';
+        btn.style.background = '';
+        btn.style.color = '';
+      } else {
+        selectedHighlights.add(i);
+        btn.classList.add('selected');
+        btn.style.boxShadow = '0 6px 18px rgba(0,0,0,0.5) inset';
+        btn.style.background = COLORS[i];
+        btn.style.color = '#041417';
+      }
+      renderMatrixHighlights();
+    });
+
+    function updateSequenceDisplay(){
+      seqDisplay.innerHTML = '';
+      for(let j=0;j<12;j++){
+        const slot = document.createElement('div');
+        slot.className = 'slot';
+        if(primeRow[j] !== undefined){
+          slot.classList.add('filled');
+          slot.textContent = PITCHES[primeRow[j]];
+        } else {
+          slot.textContent = '';
+        }
+        seqDisplay.appendChild(slot);
+      }
+    }
+
+    function generateMatrix(){
+      if(primeRow.length !== 12){
+        alert('Please enter 12 distinct pitch-classes for the prime row.');
+        return;
+      }
+      matrix = Array.from({length:12},(_,r)=>Array.from({length:12},(_,c)=>
+        ((primeRow[c] + (primeRow[0] - primeRow[r])) % 12 + 12) % 12
+      ));
+      computeLabelsAndForms();
+      renderMatrix();
+      renderFormsList();
+    }
+
+    function computeLabelsAndForms(){
+      labels = {P:[],I:[],R:[],RI:[]};
+
+      // Primes P and their retrogrades R (R mirrors P's index)
+      for(let r=0;r<12;r++){
+        const rowSeq = matrix[r].slice();
+        const first = rowSeq[0];
+        labels.P.push({name:`P${first}`, index:first, seq: rowSeq});
+        // R mirrors the P index and is the retrograde of the same row
+        labels.R.push({name:`R${first}`, index:first, seq: rowSeq.slice().reverse()});
+      }
+
+      // Inversions I and their retrograde-inversions RI (RI mirrors I's index)
+      for(let c=0;c<12;c++){
+        const colSeq = [];
+        for(let r=0;r<12;r++) colSeq.push(matrix[r][c]);
+        const first = colSeq[0];
+        labels.I.push({name:`I${first}`, index:first, seq: colSeq});
+        // RI mirrors the I index and is the retrograde (reverse) of the column
+        labels.RI.push({name:`RI${first}`, index:first, seq: colSeq.slice().reverse()});
+      }
+    }
+
+    function renderMatrix(){
+      matrixContainer.innerHTML = '';
+      // top-left corner
+      const cornerTL = document.createElement('div');cornerTL.className='corner';matrixContainer.appendChild(cornerTL);
+      // top I labels
+      for(let c=0;c<12;c++){
+        const lb = document.createElement('div');lb.className='label-cell col-label';lb.textContent = labels.I[c] ? labels.I[c].name : '';
+        matrixContainer.appendChild(lb);
+      }
+      // top-right corner
+      const cornerTR = document.createElement('div');cornerTR.className='corner';matrixContainer.appendChild(cornerTR);
+
+      // rows: left P label, 12 cells, right R label
+      for(let r=0;r<12;r++){
+        const left = document.createElement('div');left.className='label-cell row-label';left.textContent = labels.P[r] ? labels.P[r].name : '';
+        matrixContainer.appendChild(left);
+        for(let c=0;c<12;c++){
+          const value = matrix[r][c];
+          const cell = document.createElement('div');cell.className='cell';cell.dataset.pitch = value;cell.dataset.r=r;cell.dataset.c=c;
+          const note = document.createElement('div');note.className='note';note.textContent = PITCHES[value];
+          const badge = document.createElement('div');badge.className='badge';badge.style.background = selectedHighlights.has(value) ? COLORS[value] : 'transparent';badge.style.opacity = selectedHighlights.has(value) ? 0.28 : 0;
+          cell.appendChild(badge);cell.appendChild(note);
+          cell.addEventListener('click', ()=>{toggleHighlight(value);updateBottomKeyboardButtons();});
+          matrixContainer.appendChild(cell);
+        }
+        const right = document.createElement('div');right.className='label-cell right-label';right.textContent = labels.R[r] ? labels.R[r].name : '';
+        matrixContainer.appendChild(right);
+      }
+
+      // bottom row: corner, 12 RI labels, corner
+      const cornerBL = document.createElement('div');cornerBL.className='corner';matrixContainer.appendChild(cornerBL);
+      for(let c=0;c<12;c++){
+        const lb = document.createElement('div');lb.className='label-cell bottom-label';lb.textContent = labels.RI[c] ? labels.RI[c].name : '';
+        matrixContainer.appendChild(lb);
+      }
+      const cornerBR = document.createElement('div');cornerBR.className='corner';matrixContainer.appendChild(cornerBR);
+
+      renderMatrixHighlights();
+    }
+
+    function renderMatrixHighlights(){
+      const cells = matrixContainer.querySelectorAll('.cell');
+      cells.forEach(cell=>{
+        const p = Number(cell.dataset.pitch);
+        const badge = cell.querySelector('.badge');
+        if(selectedHighlights.has(p)){
+          cell.classList.add('highlight');
+          badge.style.background = COLORS[p];
+          badge.style.opacity = 0.28;
+        } else {
+          cell.classList.remove('highlight');
+          badge.style.background = 'transparent';
+          badge.style.opacity = 0;
+        }
+      });
+    }
+
+    function toggleHighlight(pitch){ if(selectedHighlights.has(pitch)) selectedHighlights.delete(pitch); else selectedHighlights.add(pitch); renderMatrixHighlights(); }
+
+    function updateBottomKeyboardButtons(){
+      const btns = bottomKeyboard.querySelectorAll('.key');
+      btns.forEach(b=>{
+        const idx = Number(b.dataset.idx);
+        if(selectedHighlights.has(idx)){
+          b.classList.add('selected');b.style.background = COLORS[idx];b.style.color = '#041417';
+        } else { b.classList.remove('selected');b.style.background = '';b.style.color = ''; }
+      });
+    }
+
+    function renderFormsList(){
+      formsList.innerHTML = '';
+      const addGroup = (title, arr)=>{
+        const t = document.createElement('div');t.style.fontWeight='600';t.style.marginTop='6px';t.style.color='#dff6ff';t.textContent=title;formsList.appendChild(t);
+        const row = document.createElement('div');row.className='form-row';
+        arr.forEach(item=>{
+          const chip = document.createElement('div');chip.className='chip';chip.textContent = item.name + ': ' + item.seq.map(n=>PITCHES[n]).join('-');
+          chip.addEventListener('click', ()=>{navigator.clipboard && navigator.clipboard.writeText(item.seq.join(','));chip.style.outline='2px solid rgba(255,255,255,0.06)';});
+          row.appendChild(chip);
+        });
+        formsList.appendChild(row);
+      };
+      addGroup('Primes (P):', labels.P);
+      addGroup('Inversions (I):', labels.I);
+      addGroup('Retrogrades (R):', labels.R);
+      addGroup('Retrograde-Inversions (RI):', labels.RI);
+    }
+
+    document.getElementById('generateBtn').addEventListener('click', generateMatrix);
+    document.getElementById('clearRowBtn').addEventListener('click', ()=>{ primeRow = []; updateSequenceDisplay(); topKeyboard.querySelectorAll('.key').forEach(k=>k.classList.remove('active')); matrixContainer.innerHTML = ''; matrix = []; formsList.innerHTML = ''; });
+    document.getElementById('randomBtn').addEventListener('click', ()=>{ const arr = Array.from({length:12},(_,i)=>i); for(let i=arr.length-1;i>0;i--){ const j = Math.floor(Math.random()*(i+1)); [arr[i],arr[j]] = [arr[j],arr[i]];} primeRow = arr.slice(); updateSequenceDisplay(); topKeyboard.querySelectorAll('.key').forEach(k=>{ const idx = Number(k.dataset.idx); if(primeRow.includes(idx)) k.classList.add('active'); else k.classList.remove('active'); }); generateMatrix(); });
+    document.getElementById('clearHighlights').addEventListener('click', ()=>{ selectedHighlights.clear(); updateBottomKeyboardButtons(); renderMatrixHighlights(); });
+
+    updateSequenceDisplay();
+    window.appState = {PITCHES,COLORS};
+  </script>
+</body>
+</html>
