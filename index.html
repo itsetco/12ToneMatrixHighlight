@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>12-tone matrix — Generator + Multi-Highlight + Labels (corrected)</title>
+  <title>12-tone matrix — Generator + Multi-Highlight + Labels (editable)</title>
   <style>
     :root{
       --gap:8px;
@@ -29,15 +29,14 @@
 
     .row-input{display:flex;gap:8px;align-items:center}
     .sequence{min-height:var(--kbd-h);display:flex;gap:8px;align-items:center;padding:6px;border-radius:8px;background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent)}
-    .slot{width:40px;height:34px;border-radius:6px;background:rgba(255,255,255,0.02);display:flex;align-items:center;justify-content:center;color:var(--muted);border:1px dashed rgba(255,255,255,0.03)}
+    .slot{width:40px;height:34px;border-radius:6px;background:rgba(255,255,255,0.02);display:flex;align-items:center;justify-content:center;color:var(--muted);border:1px dashed rgba(255,255,255,0.03);cursor:pointer}
     .slot.filled{background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(125,211,252,0.02));color:#dff6ff;border:1px solid rgba(125,211,252,0.12)}
+    .slot.empty{opacity:0.25}
 
     .btn{background:linear-gradient(180deg,#163143,#0d2836);padding:8px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);cursor:pointer;color:var(--accent)}
 
     .matrix-wrap{display:flex;gap:12px;align-items:flex-start}
 
-    /* 14x14 grid: left label, 12 cells, right label  (cols)
-       top labels, 12 rows, bottom labels (rows) */
     .matrix-container{display:grid;grid-template-columns:auto repeat(12,var(--cell-size)) auto;grid-template-rows:auto repeat(12,var(--cell-size)) auto;gap:6px;padding:8px;background:rgba(255,255,255,0.02);border-radius:10px;border:1px solid rgba(255,255,255,0.03)}
 
     .label-cell{width:var(--cell-size);height:var(--cell-size);display:flex;align-items:center;justify-content:center;border-radius:6px;background:transparent;font-size:12px;color:var(--muted);border:1px solid rgba(255,255,255,0.02);}
@@ -64,6 +63,8 @@
     .forms .form-row{display:flex;gap:8px;flex-wrap:wrap}
     .forms .chip{padding:6px 8px;border-radius:8px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.03);font-size:12px}
 
+    .hint{font-size:12px;color:var(--muted);margin-top:6px}
+
     @media (max-width:980px){.matrix-wrap{flex-direction:column}.legend{min-width:unset}}
   </style>
 </head>
@@ -71,8 +72,8 @@
   <div class="app">
     <header>
       <div>
-        <h1>12-tone matrix — generator + multi-highlight</h1>
-        <p class="lead">Armá la fila prima con el teclado superior. Luego <strong>Generate Matrix</strong>. Las etiquetas ahora calculan las designaciones **relativas**: <strong>P0</strong> es la fila prima original (transposición 0) y todas las demás P/I/R/RI se nombran en relación a esa referencia — conservando además el espejado R ↔ P e RI ↔ I.</p>
+        <h1>12-tone matrix — Generator + Multi-Highlight</h1>
+        <p class="lead">Armá la fila prima con el teclado superior. Podés borrar notas una por una mientras las escribís: hacé click en la casilla de la secuencia para eliminar esa nota, o usá <strong>Delete last</strong> (o la tecla Backspace) para borrar la última.</p>
       </div>
     </header>
 
@@ -81,20 +82,20 @@
         <div class="kbd" id="topKeyboard"></div>
         <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
           <div class="row-input">
-            <div class="sequence" id="sequenceDisplay" aria-live="polite"></div>
+            <div class="sequence" id="sequenceDisplay" aria-live="polite" title="Click a filled slot to remove that pitch"></div>
           </div>
           <button class="btn" id="generateBtn">Generate Matrix</button>
           <button class="btn" id="randomBtn">Random Row</button>
+          <button class="btn" id="deleteLastBtn" title="Delete last (Backspace)">Delete last</button>
           <button class="btn" id="clearRowBtn">Clear</button>
         </div>
+        <div class="hint">Tip: click a slot in the sequence to remove that specific note. Backspace also deletes the last note.</div>
       </div>
     </section>
 
     <div class="matrix-wrap">
       <div>
-        <div id="matrixContainer" class="matrix-container" aria-hidden="true">
-          <!-- 14x14 grid: JS llenará con: corner, 12 I-labels, corner; then for each row: P-label, 12 cells, R-label; final row: corner, 12 RI-labels, corner -->
-        </div>
+        <div id="matrixContainer" class="matrix-container" aria-hidden="true"></div>
       </div>
 
       <aside class="legend">
@@ -167,19 +168,53 @@
       renderMatrixHighlights();
     });
 
+    // update sequence display; slots are clickable to remove that specific note
     function updateSequenceDisplay(){
       seqDisplay.innerHTML = '';
       for(let j=0;j<12;j++){
         const slot = document.createElement('div');
         slot.className = 'slot';
+        slot.dataset.pos = j;
         if(primeRow[j] !== undefined){
           slot.classList.add('filled');
           slot.textContent = PITCHES[primeRow[j]];
+          slot.title = 'Click to remove ' + PITCHES[primeRow[j]] + ' (position ' + j + ')';
+          // click removes that exact index
+          slot.addEventListener('click', ()=>{
+            removeAtIndex(j);
+          });
         } else {
+          slot.classList.add('empty');
           slot.textContent = '';
         }
         seqDisplay.appendChild(slot);
       }
+    }
+
+    // remove item at index (shift left remaining)
+    function removeAtIndex(idx){
+      if(idx < 0 || idx >= primeRow.length) return;
+      const removed = primeRow.splice(idx,1)[0];
+      // remove active from top keyboard corresponding key
+      const key = topKeyboard.querySelector('.key[data-idx="'+removed+'"]');
+      if(key) key.classList.remove('active');
+      updateSequenceDisplay();
+      // if matrix exists, clear it because row changed
+      matrix = [];
+      matrixContainer.innerHTML = '';
+      formsList.innerHTML = '';
+    }
+
+    // delete last (pop)
+    function deleteLast(){
+      if(primeRow.length === 0) return;
+      const removed = primeRow.pop();
+      const key = topKeyboard.querySelector('.key[data-idx="'+removed+'"]');
+      if(key) key.classList.remove('active');
+      updateSequenceDisplay();
+      matrix = [];
+      matrixContainer.innerHTML = '';
+      formsList.innerHTML = '';
     }
 
     function generateMatrix(){
@@ -195,45 +230,35 @@
       renderFormsList();
     }
 
-    // IMPORTANT: compute labels RELATIVE to the prime row's first element (P0 reference)
+    // compute labels RELATIVE to the prime row's first element (P0 reference)
     function computeLabelsAndFormsRelative(){
       labels = {P:[],I:[],R:[],RI:[]};
       if(!primeRow || primeRow.length !== 12) return;
-      const ref = primeRow[0]; // reference pitch-class for P0
-
-      // Rows -> Primes Pn: transposition number = (ref - primeRow[r]) mod 12
+      const ref = primeRow[0];
       for(let r=0;r<12;r++){
         const rowSeq = matrix[r].slice();
-        const trans = ((ref - primeRow[r]) % 12 + 12) % 12; // Pn where n = trans
+        const trans = ((ref - primeRow[r]) % 12 + 12) % 12; // Pn number relative to P0
         labels.P.push({name:`P${trans}`, index:trans, seq: rowSeq});
-        // R mirrors P number and is retrograde of the same row
         labels.R.push({name:`R${trans}`, index:trans, seq: rowSeq.slice().reverse()});
       }
-
-      // Columns -> Inversions In: transposition number = (primeRow[c] - ref) mod 12
       for(let c=0;c<12;c++){
         const colSeq = [];
         for(let r=0;r<12;r++) colSeq.push(matrix[r][c]);
-        const trans = ((primeRow[c] - ref) % 12 + 12) % 12; // I n where n = trans
+        const trans = ((primeRow[c] - ref) % 12 + 12) % 12; // In number relative to P0
         labels.I.push({name:`I${trans}`, index:trans, seq: colSeq});
-        // RI mirrors I number and is retrograde of the column
         labels.RI.push({name:`RI${trans}`, index:trans, seq: colSeq.slice().reverse()});
       }
     }
 
     function renderMatrix(){
       matrixContainer.innerHTML = '';
-      // top-left corner
       const cornerTL = document.createElement('div');cornerTL.className='corner';matrixContainer.appendChild(cornerTL);
-      // top I labels
       for(let c=0;c<12;c++){
         const lb = document.createElement('div');lb.className='label-cell col-label';lb.textContent = labels.I[c] ? labels.I[c].name : '';
         matrixContainer.appendChild(lb);
       }
-      // top-right corner
       const cornerTR = document.createElement('div');cornerTR.className='corner';matrixContainer.appendChild(cornerTR);
 
-      // rows: left P label, 12 cells, right R label
       for(let r=0;r<12;r++){
         const left = document.createElement('div');left.className='label-cell row-label';left.textContent = labels.P[r] ? labels.P[r].name : '';
         matrixContainer.appendChild(left);
@@ -250,7 +275,6 @@
         matrixContainer.appendChild(right);
       }
 
-      // bottom row: corner, 12 RI labels, corner
       const cornerBL = document.createElement('div');cornerBL.className='corner';matrixContainer.appendChild(cornerBL);
       for(let c=0;c<12;c++){
         const lb = document.createElement('div');lb.className='label-cell bottom-label';lb.textContent = labels.RI[c] ? labels.RI[c].name : '';
@@ -308,14 +332,27 @@
       addGroup('Retrograde-Inversions (RI):', labels.RI);
     }
 
+    // UI actions
     document.getElementById('generateBtn').addEventListener('click', generateMatrix);
+    document.getElementById('deleteLastBtn').addEventListener('click', deleteLast);
     document.getElementById('clearRowBtn').addEventListener('click', ()=>{ primeRow = []; updateSequenceDisplay(); topKeyboard.querySelectorAll('.key').forEach(k=>k.classList.remove('active')); matrixContainer.innerHTML = ''; matrix = []; formsList.innerHTML = ''; });
     document.getElementById('randomBtn').addEventListener('click', ()=>{ const arr = Array.from({length:12},(_,i)=>i); for(let i=arr.length-1;i>0;i--){ const j = Math.floor(Math.random()*(i+1)); [arr[i],arr[j]] = [arr[j],arr[i]];} primeRow = arr.slice(); updateSequenceDisplay(); topKeyboard.querySelectorAll('.key').forEach(k=>{ const idx = Number(k.dataset.idx); if(primeRow.includes(idx)) k.classList.add('active'); else k.classList.remove('active'); }); generateMatrix(); });
     document.getElementById('clearHighlights').addEventListener('click', ()=>{ selectedHighlights.clear(); updateBottomKeyboardButtons(); renderMatrixHighlights(); });
 
+    // keyboard shortcut: Backspace deletes last (unless focus is inside an input)
+    window.addEventListener('keydown', (e)=>{
+      const tag = document.activeElement && document.activeElement.tagName.toLowerCase();
+      if(tag === 'input' || tag === 'textarea') return;
+      if(e.key === 'Backspace' || e.key === 'Delete'){
+        e.preventDefault();
+        deleteLast();
+      }
+    });
+
+    // init
     updateSequenceDisplay();
     window.appState = {PITCHES,COLORS};
+
   </script>
 </body>
 </html>
-
