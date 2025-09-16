@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>12-tone matrix — Generator + Multi-Highlight + Labels (editable)</title>
+  <title>Matriz editable de 12 notas - Con capacidad de seguimiento</title>
   <style>
     :root{
       --gap:8px;
@@ -72,8 +72,8 @@
   <div class="app">
     <header>
       <div>
-        <h1>12-tone matrix — Generator + Multi-Highlight</h1>
-        <p class="lead">Armá la fila prima con el teclado superior. Podés borrar notas una por una mientras las escribís: hacé click en la casilla de la secuencia para eliminar esa nota, o usá <strong>Delete last</strong> (o la tecla Backspace) para borrar la última.</p>
+        <h1>Matriz editable de 12 notas - Con capacidad de seguimientot</h1>
+        <p class="lead">Creá la secuencia original (P) con el tecladito de abajo. La escritura es lineal, pero podés borrar notas una por una haciendo clic en la nota que quieras eliminar o usando el botón de <strong>Borrar Última</strong>.</p>
       </div>
     </header>
 
@@ -84,12 +84,12 @@
           <div class="row-input">
             <div class="sequence" id="sequenceDisplay" aria-live="polite" title="Click a filled slot to remove that pitch"></div>
           </div>
-          <button class="btn" id="generateBtn">Generate Matrix</button>
-          <button class="btn" id="randomBtn">Random Row</button>
-          <button class="btn" id="deleteLastBtn" title="Delete last (Backspace)">Delete last</button>
-          <button class="btn" id="clearRowBtn">Clear</button>
+          <button class="btn" id="deleteLastBtn" title="Delete last (Backspace)">Borrar Última</button>
+          <button class="btn" id="generateBtn">Generar Matriz</button>
+          <button class="btn" id="randomBtn">Secuencia Random</button>
+          <button class="btn" id="clearRowBtn">Limpiar</button>
         </div>
-        <div class="hint">Tip: click a slot in the sequence to remove that specific note. Backspace also deletes the last note.</div>
+        <div class="hint">Experimento hecho por Agustín L. Giachero :p</div>
       </div>
     </section>
 
@@ -101,10 +101,10 @@
       <aside class="legend">
         <div style="display:flex;align-items:center;justify-content:space-between"><strong>Highlight keyboard</strong><button class="btn" id="clearHighlights">Clear</button></div>
         <div class="mini-kbd" id="bottomKeyboard"></div>
-        <div class="help">Seleccioná notas para colorear todas las celdas que contengan esa clase de altura. Click en una celda alterna el highlight de su pitch.</div>
+        <div class="help">Seleccioná notas para colorear todas las celdas que contengan ese pitch class.</div>
 
         <div class="forms">
-          <strong>Derivations (click to copy)</strong>
+          <strong>Formas derivadas de la secuencia</strong>
           <div id="formsList"></div>
         </div>
       </aside>
